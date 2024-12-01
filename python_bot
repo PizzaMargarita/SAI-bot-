@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import asyncio
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
@@ -104,12 +106,17 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("site", site))
     app.add_handler(CommandHandler("vk", vk))
     app.add_handler(CommandHandler("kampus", kampus))
+    app.add_handler(CommandHandler("schedule", schedule))
     app.add_handler(CommandHandler("menu", menu))
 
-    # Обработчики сообщений
+    # Обработчик определенных текстовых сообщений
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_hello))
+
+    # Обработчик неизвестных команд
     app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
-    app.add_handler(MessageHandler(filters.ALL, unknown_messages))
+
+    # Обработчик всех остальных текстовых сообщений
+    app.add_handler(MessageHandler(filters.TEXT, unknown_messages))
 
     # Запускаем бота
     print("Бот запущен!")
