@@ -1,0 +1,116 @@
+import asyncio
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+
+# Вставьте сюда ваш токен
+BOT_TOKEN = "7761553896:AAFeMNvTLU_xNLdlOumC1BLzbvFQFVqETm8"
+
+# Хранилище для отслеживания таймеров
+user_timers = {}
+
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Я бот Университета 'Дубна'. Готов ответить на Ваши вопросы! В /menu Вы можете найти часто задаваемые вопросы :)")
+
+    # Запускаем таймер для напоминания через 60 секунд, если еще не существует
+    chat_id = update.effective_chat.id
+    if chat_id not in user_timers:
+        timer = asyncio.create_task(wait_for_user_activity(update, context))
+        user_timers[chat_id] = timer
+
+# Функция, которая будет вызываться, если не было активности в течение 60 секунд
+async def wait_for_user_activity(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    await asyncio.sleep(60)  # Ждем 60 секунд
+    if chat_id in user_timers:
+        await context.bot.send_message(chat_id, "Для начала нажми /start")
+        del user_timers[chat_id]  # Удаляем таймер после отправки сообщения
+
+# Меню
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Создаем клавиатуру
+    reply_keyboard = [
+        ["/kampus", "/lms"],  # Кнопки первого ряда
+        ["/vk", "/site"],  # Кнопки второго ряда
+        ["/schedule"]  # Кнопка третьего ряда
+    ]
+    # Отправляем сообщение с клавиатурой
+    await update.message.reply_text(
+        "Привет! Выберите один из вариантов:",
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard,
+            resize_keyboard=True,  # Кнопки будут подстраиваться по размеру
+            one_time_keyboard=False  # Клавиатура будет оставаться на экране
+        )
+    )
+
+# Прочие команды
+async def kampus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        # Открываем файл с изображением в режиме чтения байтов
+        with open("kampus.png", 'rb') as photo:
+            # Отправляем изображение через контекст бота
+            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
+    except FileNotFoundError:
+        # Если файл не найден
+        await update.message.reply_text("Файл с изображением 'kampus.png' не найден. Проверьте путь.")
+    except Exception as e:
+        # Обработка других возможных ошибок
+        await update.message.reply_text(f"Произошла ошибка: {e}")
+
+async def vk(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Ссылка на VK университета: https://vk.com/unidubna_official")
+
+async def site(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Ссылка на сайт университета:  https://uni-dubna.ru/")
+
+async def lms(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Ссылка на lms университета: https://lms.uni-dubna.ru/. За данными для входа в систему обратитесь к куратору")
+
+async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Расписание занятий Вы можете найти по ссылке: https://eios.uni-dubna.ru/schedule")
+
+# Обработка нераспознанных команд
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Извините, я не знаю такой команды. Напишите /help, чтобы посмотреть доступные команды."
+    )
+
+async def unknown_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Я не понимаю, что вы имеете в виду. Напишите /help, чтобы узнать доступные команды.")
+
+async def handle_hello(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_text = update.message.text.strip().lower()  # Преобразуем текст в нижний регистр и убираем лишние пробелы
+    if message_text == "учебная часть исау":  # Сравнение с текстом в нижнем регистре
+        await update.message.reply_text("Учебная часть института САУ находится в 1-317 (1 корпус, 3 этаж, кабинет 317)")
+
+    # Сбрасываем таймер, если пользователь написал сообщение
+    chat_id = update.effective_chat.id
+    if chat_id in user_timers:
+        user_timers[chat_id].cancel()  # Отменяем старый таймер
+        del user_timers[chat_id]
+    # Запускаем новый таймер
+    timer = asyncio.create_task(wait_for_user_activity(update, context))
+    user_timers[chat_id] = timer
+
+# Основная функция
+if __name__ == "__main__":
+    # Создаем приложение
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Регистрируем команды
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("lms", lms))
+    app.add_handler(CommandHandler("site", site))
+    app.add_handler(CommandHandler("vk", vk))
+    app.add_handler(CommandHandler("kampus", kampus))
+    app.add_handler(CommandHandler("menu", menu))
+
+    # Обработчики сообщений
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_hello))
+    app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    app.add_handler(MessageHandler(filters.ALL, unknown_messages))
+
+    # Запускаем бота
+    print("Бот запущен!")
+    app.run_polling()
